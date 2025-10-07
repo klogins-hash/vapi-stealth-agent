@@ -7,11 +7,13 @@ import os
 import json
 from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Any, Optional
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, JSON, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, JSON, Boolean, Float, Index
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, ARRAY
+from sqlalchemy.sql import text
 import uuid
+import numpy as np
 
 # Database configuration from Northflank environment variables (private network)
 DATABASE_URL = os.environ.get("NF_POSTGRESQL_POSTGRES_URI")
