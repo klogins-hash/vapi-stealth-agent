@@ -291,7 +291,12 @@ def chat_completions():
     Main endpoint - VAPI thinks this is a simple LLM, but it's actually our mastermind agent
     """
     request_data = request.get_json()
-    stealth.log_event("Incoming VAPI Request", {"streaming": request_data.get('stream', False)})
+    stealth.log_event("Incoming Request", {
+        "headers": dict(request.headers),
+        "data": request_data,
+        "method": request.method,
+        "url": request.url
+    })
     
     messages = request_data.get('messages', [])
     streaming = request_data.get('stream', False)
@@ -583,6 +588,19 @@ def v1_chat_completions():
     OpenAI v1 API compatible endpoint - redirects to main chat completions
     """
     return chat_completions()
+
+@stealth_agent.route('/vapi-test', methods=['GET', 'POST'])
+def vapi_test():
+    """
+    Simple test endpoint for VAPI connectivity
+    """
+    return jsonify({
+        "status": "VAPI can reach this endpoint",
+        "method": request.method,
+        "headers": dict(request.headers),
+        "data": request.get_json() if request.method == 'POST' else None,
+        "timestamp": datetime.now().isoformat()
+    })
 
 @stealth_agent.route('/health', methods=['GET'])
 def health_check():
