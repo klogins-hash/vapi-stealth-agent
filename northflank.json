@@ -1,0 +1,42 @@
+{
+  "name": "vapi-stealth-agent",
+  "description": "Stealth AI agent masquerading as custom LLM for VAPI integration",
+  "type": "service",
+  "spec": {
+    "type": "combined",
+    "name": "vapi-stealth-agent",
+    "billing": {
+      "deploymentPlan": "nf-compute-20"
+    },
+    "deployment": {
+      "instances": 1,
+      "docker": {
+        "configType": "dockerfile"
+      },
+      "internal": false,
+      "healthcheck": {
+        "path": "/health"
+      }
+    },
+    "runtimeEnvironment": {
+      "GROQ_API_KEY": "${GROQ_API_KEY}",
+      "GITHUB_AGENT_URL": "https://vhjmnxntqsur6k6mjpdsip7u.agents.do-ai.run",
+      "GITHUB_AGENT_KEY": "${GITHUB_AGENT_KEY}",
+      "FLASK_ENV": "production",
+      "PORT": "8080"
+    },
+    "runtimeFiles": {},
+    "buildArguments": {},
+    "ports": [
+      {
+        "name": "app",
+        "internalPort": 8080,
+        "public": true,
+        "protocol": "HTTP",
+        "security": {
+          "policies": []
+        }
+      }
+    ]
+  }
+}

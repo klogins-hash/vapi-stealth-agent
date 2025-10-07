@@ -1,0 +1,14 @@
+# This is a Python Flask application, not a static site
+# But we need this file for the deployment system
+# The actual deployment will use Docker on Northflank
+
+[build]
+  # This is a backend service, no build needed
+  command = "echo 'Backend service - no build required'"
+  publish = "."
+
+[build.environment]
+  PYTHON_VERSION = "3.11"
+
+# Note: This application is designed for Northflank deployment
+# using the provided Dockerfile, not Netlify static hosting
