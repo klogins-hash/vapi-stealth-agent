@@ -13,7 +13,15 @@ from typing import Dict, List, Any, Optional
 from functools import wraps
 from flask import Flask, Blueprint, request, Response, jsonify
 from groq import Groq
-from database import db_manager
+# Try to import database, but don't crash if it fails
+try:
+    from database import db_manager
+    DB_AVAILABLE = True
+    print("✅ Database connection available")
+except Exception as e:
+    print(f"⚠️ Database not available: {e}")
+    DB_AVAILABLE = False
+    db_manager = None
 
 # Initialize Groq client with error handling and retry logic
 groq_client = None
@@ -312,12 +320,16 @@ def chat_completions():
         start_time = time.time()
         
         # Log incoming user message
-        db_manager.log_conversation(
-            session_id=session_id,
-            role="user", 
-            content=user_message,
-            user_id=request.headers.get('X-User-ID')
-        )
+        if DB_AVAILABLE and db_manager:
+            try:
+                db_manager.log_conversation(
+                    session_id=session_id,
+                    role="user", 
+                    content=user_message,
+                    user_id=request.headers.get('X-User-ID')
+                )
+            except Exception as e:
+                print(f"Database logging failed: {e}")
         
         # Optimized for low latency - direct Groq response
         client = get_groq_client()
@@ -337,23 +349,27 @@ def chat_completions():
         
         # Calculate response time and log assistant response
         response_time_ms = int((time.time() - start_time) * 1000)
-        db_manager.log_conversation(
-            session_id=session_id,
-            role="assistant",
-            content=final_response,
-            model_used=stealth.model,
-            response_time_ms=response_time_ms,
-            user_id=request.headers.get('X-User-ID')
-        )
-        
-        # Log performance metrics
-        db_manager.log_agent_metrics(
-            agent_name="stealth_orchestrator",
-            operation="chat_completion",
-            response_time_ms=response_time_ms,
-            success=True,
-            model_used=stealth.model
-        )
+        if DB_AVAILABLE and db_manager:
+            try:
+                db_manager.log_conversation(
+                    session_id=session_id,
+                    role="assistant",
+                    content=final_response,
+                    model_used=stealth.model,
+                    response_time_ms=response_time_ms,
+                    user_id=request.headers.get('X-User-ID')
+                )
+                
+                # Log performance metrics
+                db_manager.log_agent_metrics(
+                    agent_name="stealth_orchestrator",
+                    operation="chat_completion",
+                    response_time_ms=response_time_ms,
+                    success=True,
+                    model_used=stealth.model
+                )
+            except Exception as e:
+                print(f"Database logging failed: {e}")
         
         if streaming:
             # Stream the response like a real LLM
@@ -683,21 +699,35 @@ def analytics():
     Database analytics and performance metrics
     """
     try:
-        # Get agent performance
-        stealth_performance = db_manager.get_agent_performance("stealth_orchestrator", hours=24)
-        
-        # Get recent conversation count
-        with db_manager.get_session() as db:
-            from database import ConversationHistory
-            recent_conversations = db.query(ConversationHistory).count()
-        
-        return jsonify({
-            "database_status": "connected",
-            "stealth_agent_performance": stealth_performance,
-            "total_conversations": recent_conversations,
-            "database_url": "postgresql://***:***@primary.postgresql--4h7vh8ddvxpx.addon.code.run:5432/***",
-            "timestamp": datetime.now().isoformat()
-        })
+        if DB_AVAILABLE and db_manager:
+            try:
+                # Get agent performance
+                stealth_performance = db_manager.get_agent_performance("stealth_orchestrator", hours=24)
+                
+                # Get recent conversation count
+                with db_manager.get_session() as db:
+                    from database import ConversationHistory
+                    recent_conversations = db.query(ConversationHistory).count()
+                
+                return jsonify({
+                    "database_status": "connected",
+                    "stealth_agent_performance": stealth_performance,
+                    "total_conversations": recent_conversations,
+                    "database_url": "postgresql://***:***@primary.postgresql--4h7vh8ddvxpx.addon.code.run:5432/***",
+                    "timestamp": datetime.now().isoformat()
+                })
+            except Exception as e:
+                return jsonify({
+                    "database_status": "not_available",
+                    "message": "Database functionality disabled - will retry connection",
+                    "timestamp": datetime.now().isoformat()
+                })
+        else:
+            return jsonify({
+                "database_status": "not_available",
+                "message": "Database functionality disabled",
+                "timestamp": datetime.now().isoformat()
+            })
     except Exception as e:
         return jsonify({
             "database_status": "error",
