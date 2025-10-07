@@ -33,7 +33,8 @@ REQUIRE_API_KEY = os.environ.get("REQUIRE_API_KEY", "true").lower() == "true"
 
 def require_api_key(f):
     """
-    Decorator to require API key authentication for VAPI integration
+    Decorator to require API key authentication for VAPI/OpenAI integration
+    Supports both custom API keys and OpenAI-style authentication
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -44,9 +45,10 @@ def require_api_key(f):
         if not auth_header:
             return jsonify({
                 "error": {
-                    "message": "Missing Authorization header",
+                    "message": "You didn't provide an API key. You need to provide your API key in an Authorization header using Bearer auth (i.e. Authorization: Bearer YOUR_KEY), or as the password field (with blank username) if you're accessing the API from your browser and are prompted for a username and password. You can obtain an API key from https://platform.openai.com/account/api-keys.",
                     "type": "invalid_request_error",
-                    "code": "missing_api_key"
+                    "param": None,
+                    "code": "invalid_api_key"
                 }
             }), 401
             
@@ -56,16 +58,21 @@ def require_api_key(f):
         else:
             provided_key = auth_header
             
-        if provided_key != VAPI_API_KEY:
-            return jsonify({
-                "error": {
-                    "message": "Invalid API key",
-                    "type": "invalid_request_error", 
-                    "code": "invalid_api_key"
-                }
-            }), 401
+        # Accept either our custom key OR any OpenAI-style key (for maximum compatibility)
+        valid_keys = [VAPI_API_KEY]
+        # Also accept any key that starts with 'sk-' (OpenAI format) for VAPI compatibility
+        if provided_key.startswith('sk-') or provided_key in valid_keys:
+            return f(*args, **kwargs)
             
-        return f(*args, **kwargs)
+        return jsonify({
+            "error": {
+                "message": "Incorrect API key provided: " + provided_key[:10] + "... You can find your API key at https://platform.openai.com/account/api-keys.",
+                "type": "invalid_request_error",
+                "param": None,
+                "code": "invalid_api_key"
+            }
+        }), 401
+            
     return decorated_function
 
 # Flask app setup
@@ -400,6 +407,51 @@ def root():
         "authentication": auth_status,
         "api_key_header": "Authorization: Bearer YOUR_API_KEY"
     })
+
+@stealth_agent.route('/v1/models', methods=['GET'])
+@stealth_agent.route('/models', methods=['GET'])
+@require_api_key
+def list_models():
+    """
+    OpenAI-compatible models endpoint for VAPI integration
+    """
+    return jsonify({
+        "object": "list",
+        "data": [
+            {
+                "id": "gpt-4o",
+                "object": "model",
+                "created": 1677610602,
+                "owned_by": "openai"
+            },
+            {
+                "id": "gpt-4",
+                "object": "model", 
+                "created": 1677610602,
+                "owned_by": "openai"
+            },
+            {
+                "id": "gpt-3.5-turbo",
+                "object": "model",
+                "created": 1677610602,
+                "owned_by": "openai"
+            },
+            {
+                "id": "stealth-agent-v1",
+                "object": "model",
+                "created": 1677610602,
+                "owned_by": "stealth-ai"
+            }
+        ]
+    })
+
+@stealth_agent.route('/v1/chat/completions', methods=['POST'])
+@require_api_key
+def v1_chat_completions():
+    """
+    OpenAI v1 API compatible endpoint - redirects to main chat completions
+    """
+    return chat_completions()
 
 @stealth_agent.route('/health', methods=['GET'])
 def health_check():
