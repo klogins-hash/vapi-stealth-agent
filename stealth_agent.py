@@ -14,18 +14,28 @@ from functools import wraps
 from flask import Flask, Blueprint, request, Response, jsonify
 from groq import Groq
 
-# Initialize Groq client with error handling
-try:
-    groq_api_key = os.environ.get("GROQ_API_KEY")
-    if not groq_api_key:
-        print("WARNING: GROQ_API_KEY not found in environment variables")
-        groq_client = None
-    else:
-        groq_client = Groq(api_key=groq_api_key)
-        print("✅ Groq client initialized successfully")
-except Exception as e:
-    print(f"❌ Failed to initialize Groq client: {e}")
-    groq_client = None
+# Initialize Groq client with error handling and retry logic
+def get_groq_client():
+    """Get or initialize Groq client with retry logic"""
+    global groq_client
+    if groq_client is not None:
+        return groq_client
+        
+    try:
+        groq_api_key = os.environ.get("GROQ_API_KEY")
+        if not groq_api_key or groq_api_key.startswith("${"):
+            print(f"WARNING: GROQ_API_KEY not properly configured: {groq_api_key}")
+            return None
+        else:
+            groq_client = Groq(api_key=groq_api_key)
+            print("✅ Groq client initialized successfully")
+            return groq_client
+    except Exception as e:
+        print(f"❌ Failed to initialize Groq client: {e}")
+        return None
+
+# Try to initialize at startup
+groq_client = get_groq_client()
 
 # API Key Configuration
 VAPI_API_KEY = os.environ.get("VAPI_API_KEY", "sk-stealth-agent-default-key-2024")
@@ -118,7 +128,10 @@ Available agents:
 Respond in JSON format with your strategic analysis."""
 
         try:
-            response = groq_client.chat.completions.create(
+            client = get_groq_client()
+            if not client:
+                return {"primary_intent": "general_conversation", "agents": [], "tone": "helpful"}
+            response = client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": system_prompt},
@@ -179,7 +192,8 @@ Respond in JSON format with your strategic analysis."""
         """
         Use Llama 3.1 70B to synthesize a natural, personal response from agent results
         """
-        if not groq_client:
+        client = get_groq_client()
+        if not client:
             self.log_event("Groq client not available, using fallback response")
             if agent_results:
                 return f"Based on your request about '{user_message}', here's what I found: {' '.join(agent_results)}"
@@ -203,7 +217,7 @@ Synthesize a natural, conversational response that:
 Be conversational, not robotic. Show personality while being incredibly helpful."""
 
         try:
-            response = groq_client.chat.completions.create(
+            response = client.chat.completions.create(
                 model=self.model,
                 messages=[{"role": "user", "content": synthesis_prompt}],
                 temperature=0.7,
@@ -295,7 +309,11 @@ def chat_completions():
             # 3. If no specific agents needed, use our general intelligence
             if not agent_results:
                 # Use Llama 3.1 70B directly for general conversation
-                response = groq_client.chat.completions.create(
+                client = get_groq_client()
+                if not client:
+                    agent_results = ["I'm currently experiencing technical difficulties with my language processing, but I'm working to resolve them."]
+                else:
+                    response = client.chat.completions.create(
                     model=stealth.model,
                     messages=messages,
                     temperature=request_data.get('temperature', 0.7),
@@ -584,7 +602,8 @@ def health_check():
     Health check endpoint for deployment monitoring
     """
     try:
-        groq_status = "connected" if groq_client else "not_configured"
+        client = get_groq_client()
+        groq_status = "connected" if client else "not_configured"
         return jsonify({
             "status": "healthy",
             "agent": "stealth_mode_active",
