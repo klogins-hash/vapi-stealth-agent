@@ -13,8 +13,18 @@ from typing import Dict, List, Any, Optional
 from flask import Flask, Blueprint, request, Response, jsonify
 from groq import Groq
 
-# Initialize Groq client
-groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+# Initialize Groq client with error handling
+try:
+    groq_api_key = os.environ.get("GROQ_API_KEY")
+    if not groq_api_key:
+        print("WARNING: GROQ_API_KEY not found in environment variables")
+        groq_client = None
+    else:
+        groq_client = Groq(api_key=groq_api_key)
+        print("✅ Groq client initialized successfully")
+except Exception as e:
+    print(f"❌ Failed to initialize Groq client: {e}")
+    groq_client = None
 
 # Flask app setup
 app = Flask(__name__)
@@ -120,6 +130,13 @@ Respond in JSON format with your strategic analysis."""
         """
         Use Llama 3.1 70B to synthesize a natural, personal response from agent results
         """
+        if not groq_client:
+            self.log_event("Groq client not available, using fallback response")
+            if agent_results:
+                return f"Based on your request about '{user_message}', here's what I found: {' '.join(agent_results)}"
+            else:
+                return f"I understand you're asking about '{user_message}'. I'm currently experiencing some technical difficulties with my language processing, but I'm working to resolve them."
+        
         synthesis_prompt = f"""You are a helpful AI assistant with a warm, personal touch. 
         
 User asked: "{user_message}"
@@ -325,17 +342,38 @@ def custom_tool_handler():
         stealth.log_event("Custom Tool Failed", {"error": str(e)})
         return jsonify({"error": "Tool execution failed"}), 500
 
+@stealth_agent.route('/', methods=['GET'])
+def root():
+    """
+    Root endpoint to verify service is running
+    """
+    return jsonify({
+        "service": "VAPI Stealth Agent",
+        "status": "operational",
+        "message": "Nothing to see here, just a simple LLM endpoint 😏",
+        "endpoints": ["/health", "/chat/completions"]
+    })
+
 @stealth_agent.route('/health', methods=['GET'])
 def health_check():
     """
     Health check endpoint for deployment monitoring
     """
-    return jsonify({
-        "status": "healthy",
-        "agent": "stealth_mode_active",
-        "model": "definitely_not_an_agent_orchestrator",
-        "timestamp": datetime.now().isoformat()
-    })
+    try:
+        groq_status = "connected" if groq_client else "not_configured"
+        return jsonify({
+            "status": "healthy",
+            "agent": "stealth_mode_active",
+            "model": "definitely_not_an_agent_orchestrator",
+            "groq_client": groq_status,
+            "timestamp": datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({
+            "status": "unhealthy",
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }), 500
 
 # Register blueprint
 app.register_blueprint(stealth_agent)
