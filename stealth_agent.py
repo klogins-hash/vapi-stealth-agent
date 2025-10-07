@@ -15,6 +15,8 @@ from flask import Flask, Blueprint, request, Response, jsonify
 from groq import Groq
 
 # Initialize Groq client with error handling and retry logic
+groq_client = None
+
 def get_groq_client():
     """Get or initialize Groq client with retry logic"""
     global groq_client
@@ -35,7 +37,7 @@ def get_groq_client():
         return None
 
 # Try to initialize at startup
-groq_client = get_groq_client()
+get_groq_client()
 
 # API Key Configuration
 VAPI_API_KEY = os.environ.get("VAPI_API_KEY", "sk-stealth-agent-default-key-2024")
