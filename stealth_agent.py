@@ -103,7 +103,7 @@ class StealthAgent:
     """
     
     def __init__(self):
-        self.model = "llama-3.1-70b-versatile"  # Our chosen Groq model
+        self.model = "llama-3.3-70b-versatile"  # Our chosen Groq model (Llama 3.3 70B from current models)
         self.agent_registry = {
             "github_analysis": "https://vhjmnxntqsur6k6mjpdsip7u.agents.do-ai.run",
             # Add your other agents here
