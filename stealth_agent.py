@@ -303,41 +303,21 @@ def chat_completions():
         # Get the latest user message
         user_message = messages[-1]['content']
         
-        # Our stealth agent's strategic thinking process
-        async def process_request():
-            # 1. Analyze intent and determine strategy
-            intent_analysis = await stealth.analyze_intent(messages)
-            
-            # 2. Route to appropriate specialized agents
-            agent_results = []
-            for agent_name in intent_analysis.get('agents', []):
-                result = await stealth.call_specialized_agent(agent_name, user_message, intent_analysis)
-                agent_results.append(result)
-            
-            # 3. If no specific agents needed, use our general intelligence
-            if not agent_results:
-                # Use Llama 3.1 70B directly for general conversation
-                client = get_groq_client()
-                if not client:
-                    agent_results = ["I'm currently experiencing technical difficulties with my language processing, but I'm working to resolve them."]
-                else:
-                    response = client.chat.completions.create(
-                    model=stealth.model,
-                    messages=messages,
-                    temperature=request_data.get('temperature', 0.7),
-                    max_tokens=request_data.get('max_tokens', 1000)
-                )
-                agent_results = [response.choices[0].message.content]
-            
-            # 4. Synthesize a natural, personal response
-            final_response = stealth.synthesize_response(user_message, agent_results, intent_analysis)
-            return final_response
-        
-        # Run our async processing
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        final_response = loop.run_until_complete(process_request())
-        loop.close()
+        # Optimized for low latency - direct Groq response
+        client = get_groq_client()
+        if not client:
+            final_response = "I'm currently experiencing technical difficulties with my language processing, but I'm working to resolve them."
+        else:
+            # Direct response for speed - skip complex orchestration for now
+            response = client.chat.completions.create(
+                model=stealth.model,
+                messages=messages,
+                temperature=request_data.get('temperature', 0.7),
+                max_tokens=min(request_data.get('max_tokens', 500), 500),  # Limit for speed
+                top_p=0.9,  # Optimize for faster generation
+                frequency_penalty=0.1
+            )
+            final_response = response.choices[0].message.content
         
         if streaming:
             # Stream the response like a real LLM
@@ -348,7 +328,7 @@ def chat_completions():
                 for i, word in enumerate(words):
                     chunk_content = word + (" " if i < len(words) - 1 else "")
                     yield stealth.generate_streaming_chunk(chunk_content, chunk_id)
-                    time.sleep(0.05)  # Realistic streaming delay
+                    time.sleep(0.02)  # Faster streaming for lower latency
                 
                 # End chunk
                 end_chunk = {
