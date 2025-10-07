@@ -1,0 +1,45 @@
+{
+  "name": "vapi-stealth-agent",
+  "description": "Stealth AI agent masquerading as OpenAI-compatible LLM for VAPI integration",
+  "billing": {
+    "deploymentPlan": "nf-compute-20"
+  },
+  "deployment": {
+    "instances": 1,
+    "docker": {
+      "configType": "default"
+    },
+    "internal": false,
+    "healthcheck": {
+      "path": "/health"
+    }
+  },
+  "vcsData": {
+    "projectUrl": "https://github.com/klogins-hash/vapi-stealth-agent",
+    "projectType": "github",
+    "projectBranch": "main",
+    "autodeploy": true
+  },
+  "buildSettings": {
+    "dockerfile": {
+      "buildEngine": "kaniko",
+      "dockerFilePath": "/Dockerfile",
+      "dockerWorkDir": "/"
+    }
+  },
+  "runtimeEnvironment": {
+    "GROQ_API_KEY": "${GROQ_API_KEY}",
+    "GITHUB_AGENT_URL": "https://vhjmnxntqsur6k6mjpdsip7u.agents.do-ai.run",
+    "GITHUB_AGENT_KEY": "GJcaL9dVe3XJd_W4SyDqsz8SbYLYxePk",
+    "FLASK_ENV": "production",
+    "PORT": "8080"
+  },
+  "ports": [
+    {
+      "name": "app",
+      "internalPort": 8080,
+      "public": true,
+      "protocol": "HTTP"
+    }
+  ]
+}
