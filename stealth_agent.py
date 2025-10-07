@@ -403,10 +403,135 @@ def root():
         "service": "VAPI Stealth Agent",
         "status": "operational",
         "message": "Nothing to see here, just a simple LLM endpoint 😏",
-        "endpoints": ["/health", "/chat/completions"],
+        "endpoints": ["/health", "/chat/completions", "/test-chat"],
         "authentication": auth_status,
         "api_key_header": "Authorization: Bearer YOUR_API_KEY"
     })
+
+@stealth_agent.route('/test-chat', methods=['GET'])
+def test_chat():
+    """
+    Serve the test chat interface
+    """
+    return '''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stealth Agent Test Chat</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); height: 100vh; display: flex; justify-content: center; align-items: center; }
+        .chat-container { width: 800px; height: 600px; background: white; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden; }
+        .chat-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center; }
+        .chat-header h1 { font-size: 24px; margin-bottom: 5px; }
+        .chat-header p { opacity: 0.9; font-size: 14px; }
+        .chat-messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        .message { max-width: 70%; padding: 12px 16px; border-radius: 18px; word-wrap: break-word; }
+        .user-message { background: #007AFF; color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
+        .assistant-message { background: #F1F1F1; color: #333; align-self: flex-start; border-bottom-left-radius: 4px; }
+        .typing-indicator { align-self: flex-start; background: #F1F1F1; padding: 12px 16px; border-radius: 18px; border-bottom-left-radius: 4px; display: none; }
+        .typing-dots { display: flex; gap: 4px; }
+        .typing-dots span { width: 8px; height: 8px; background: #999; border-radius: 50%; animation: typing 1.4s infinite; }
+        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-10px); } }
+        .chat-input { padding: 20px; border-top: 1px solid #E5E5E5; display: flex; gap: 10px; }
+        .input-field { flex: 1; padding: 12px 16px; border: 1px solid #DDD; border-radius: 25px; outline: none; font-size: 16px; }
+        .input-field:focus { border-color: #007AFF; }
+        .send-button { background: #007AFF; color: white; border: none; padding: 12px 20px; border-radius: 25px; cursor: pointer; font-size: 16px; transition: background 0.2s; }
+        .send-button:hover { background: #0056CC; }
+        .send-button:disabled { background: #CCC; cursor: not-allowed; }
+        .status { text-align: center; padding: 10px; font-size: 12px; color: #666; background: #F8F8F8; }
+        .status.connected { color: #4CAF50; }
+        .status.error { color: #F44336; }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h1>🕵️ Stealth Agent Test Chat</h1>
+            <p>Testing your AI agent orchestrator</p>
+        </div>
+        <div class="status" id="status">Ready to chat</div>
+        <div class="chat-messages" id="messages">
+            <div class="message assistant-message">Hello! I'm your stealth agent. I can analyze GitHub repositories, coordinate with specialized agents, and provide intelligent responses. Try asking me something!</div>
+        </div>
+        <div class="typing-indicator" id="typing">
+            <div class="typing-dots"><span></span><span></span><span></span></div>
+        </div>
+        <div class="chat-input">
+            <input type="text" class="input-field" id="messageInput" placeholder="Type your message..." maxlength="500">
+            <button class="send-button" id="sendButton">Send</button>
+        </div>
+    </div>
+    <script>
+        const API_URL = window.location.origin + '/chat/completions';
+        const API_KEY = 'sk-stealth-agent-default-key-2024';
+        const messagesContainer = document.getElementById('messages');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const typingIndicator = document.getElementById('typing');
+        const status = document.getElementById('status');
+        let conversationHistory = [];
+        
+        function addMessage(content, isUser = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user-message' : 'assistant-message'}`;
+            messageDiv.textContent = content;
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            conversationHistory.push({ role: isUser ? 'user' : 'assistant', content: content });
+        }
+        
+        function showTyping() { typingIndicator.style.display = 'block'; messagesContainer.scrollTop = messagesContainer.scrollHeight; }
+        function hideTyping() { typingIndicator.style.display = 'none'; }
+        function setStatus(message, type = '') { status.textContent = message; status.className = `status ${type}`; }
+        
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message) return;
+            addMessage(message, true);
+            messageInput.value = '';
+            sendButton.disabled = true;
+            showTyping();
+            setStatus('Sending message...', '');
+            
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
+                    body: JSON.stringify({ model: 'gpt-3.5-turbo', messages: conversationHistory.concat([{role: 'user', content: message}]), max_tokens: 1000, temperature: 0.7 })
+                });
+                
+                if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                const data = await response.json();
+                if (data.error) throw new Error(data.error.message || 'API Error');
+                
+                addMessage(data.choices[0].message.content);
+                setStatus('Connected', 'connected');
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage(`Error: ${error.message}`, false);
+                setStatus(`Error: ${error.message}`, 'error');
+            } finally {
+                hideTyping();
+                sendButton.disabled = false;
+                messageInput.focus();
+            }
+        }
+        
+        sendButton.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
+        messageInput.focus();
+        
+        setStatus('Testing connection...', '');
+        fetch('/health').then(r => r.json()).then(data => {
+            setStatus(data.status === 'healthy' ? 'Connected - Ready to chat!' : 'Service available but may have issues', data.status === 'healthy' ? 'connected' : 'error');
+        }).catch(e => { setStatus('Connection failed', 'error'); });
+    </script>
+</body>
+</html>'''
 
 @stealth_agent.route('/v1/models', methods=['GET'])
 @stealth_agent.route('/models', methods=['GET'])
