@@ -29,7 +29,7 @@ except Exception as e:
 
 # API Key Configuration
 VAPI_API_KEY = os.environ.get("VAPI_API_KEY", "sk-stealth-agent-default-key-2024")
-REQUIRE_API_KEY = os.environ.get("REQUIRE_API_KEY", "false").lower() == "true"
+REQUIRE_API_KEY = os.environ.get("REQUIRE_API_KEY", "true").lower() == "true"
 
 def require_api_key(f):
     """
