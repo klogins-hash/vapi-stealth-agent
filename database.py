@@ -13,11 +13,13 @@ from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 
-# Database configuration from Northflank environment variables
+# Database configuration from Northflank environment variables (private network)
 DATABASE_URL = os.environ.get("NF_POSTGRESQL_POSTGRES_URI")
 if not DATABASE_URL:
     print("⚠️ No PostgreSQL connection string found")
     DATABASE_URL = "sqlite:///fallback.db"  # Fallback for development
+else:
+    print(f"✅ Using Northflank private network PostgreSQL: {DATABASE_URL.split('@')[1].split('/')[0] if '@' in DATABASE_URL else 'unknown'}")
 
 # SQLAlchemy setup
 engine = create_engine(DATABASE_URL, echo=False)

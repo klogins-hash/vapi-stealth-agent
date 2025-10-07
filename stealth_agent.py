@@ -633,6 +633,50 @@ def vapi_test():
         "timestamp": datetime.now().isoformat()
     })
 
+@stealth_agent.route('/network-test', methods=['GET'])
+def network_test():
+    """
+    Test private network connectivity to Northflank services
+    """
+    try:
+        import socket
+        
+        # Test PostgreSQL private network connectivity
+        postgres_host = os.environ.get("NF_POSTGRESQL_HOST", "unknown")
+        postgres_port = int(os.environ.get("NF_POSTGRESQL_PORT", "5432"))
+        
+        # Test connection to PostgreSQL
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(5)
+            result = sock.connect_ex((postgres_host, postgres_port))
+            sock.close()
+            postgres_connectivity = "reachable" if result == 0 else f"unreachable (code: {result})"
+        except Exception as e:
+            postgres_connectivity = f"error: {str(e)}"
+        
+        return jsonify({
+            "private_network_status": "testing",
+            "postgresql": {
+                "host": postgres_host,
+                "port": postgres_port,
+                "connectivity": postgres_connectivity,
+                "using_private_network": ".addon.code.run" in postgres_host
+            },
+            "environment": {
+                "namespace": os.environ.get("NF_NAMESPACE"),
+                "region": os.environ.get("NF_REGION"),
+                "cluster": "nf-us-east1"
+            },
+            "timestamp": datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({
+            "private_network_status": "error",
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }), 500
+
 @stealth_agent.route('/analytics', methods=['GET'])
 def analytics():
     """
@@ -673,10 +717,11 @@ def health_check():
         # Test database connection
         try:
             with db_manager.get_session() as db:
-                db.execute("SELECT 1")
+                from sqlalchemy import text
+                db.execute(text("SELECT 1"))
             db_status = "connected"
-        except:
-            db_status = "disconnected"
+        except Exception as e:
+            db_status = f"disconnected: {str(e)[:50]}"
         
         return jsonify({
             "status": "healthy",
