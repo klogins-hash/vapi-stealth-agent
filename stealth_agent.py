@@ -29,11 +29,17 @@ def get_groq_client():
             print(f"WARNING: GROQ_API_KEY not properly configured: {groq_api_key}")
             return None
         else:
-            groq_client = Groq(api_key=groq_api_key)
+            # Try explicit initialization with only required parameters
+            groq_client = Groq(
+                api_key=groq_api_key,
+                timeout=30.0,
+                max_retries=2
+            )
             print("✅ Groq client initialized successfully")
             return groq_client
     except Exception as e:
         print(f"❌ Failed to initialize Groq client: {e}")
+        print(f"❌ Groq API key (first 10 chars): {groq_api_key[:10] if groq_api_key else 'None'}")
         return None
 
 # Try to initialize at startup
