@@ -29,6 +29,8 @@
   },
   "runtimeEnvironment": {
     "GROQ_API_KEY": "${GROQ_API_KEY}",
+    "VAPI_API_KEY": "${VAPI_API_KEY}",
+    "REQUIRE_API_KEY": "true",
     "GITHUB_AGENT_URL": "https://vhjmnxntqsur6k6mjpdsip7u.agents.do-ai.run",
     "GITHUB_AGENT_KEY": "GJcaL9dVe3XJd_W4SyDqsz8SbYLYxePk",
     "FLASK_ENV": "production",

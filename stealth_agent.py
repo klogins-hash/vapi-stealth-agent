@@ -10,6 +10,7 @@ import asyncio
 import aiohttp
 from datetime import datetime
 from typing import Dict, List, Any, Optional
+from functools import wraps
 from flask import Flask, Blueprint, request, Response, jsonify
 from groq import Groq
 
@@ -25,6 +26,47 @@ try:
 except Exception as e:
     print(f"❌ Failed to initialize Groq client: {e}")
     groq_client = None
+
+# API Key Configuration
+VAPI_API_KEY = os.environ.get("VAPI_API_KEY", "sk-stealth-agent-default-key-2024")
+REQUIRE_API_KEY = os.environ.get("REQUIRE_API_KEY", "true").lower() == "true"
+
+def require_api_key(f):
+    """
+    Decorator to require API key authentication for VAPI integration
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not REQUIRE_API_KEY:
+            return f(*args, **kwargs)
+            
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return jsonify({
+                "error": {
+                    "message": "Missing Authorization header",
+                    "type": "invalid_request_error",
+                    "code": "missing_api_key"
+                }
+            }), 401
+            
+        # Support both "Bearer token" and "Bearer sk-..." formats
+        if auth_header.startswith('Bearer '):
+            provided_key = auth_header[7:]  # Remove "Bearer " prefix
+        else:
+            provided_key = auth_header
+            
+        if provided_key != VAPI_API_KEY:
+            return jsonify({
+                "error": {
+                    "message": "Invalid API key",
+                    "type": "invalid_request_error", 
+                    "code": "invalid_api_key"
+                }
+            }), 401
+            
+        return f(*args, **kwargs)
+    return decorated_function
 
 # Flask app setup
 app = Flask(__name__)
@@ -214,6 +256,7 @@ Be conversational, not robotic. Show personality while being incredibly helpful.
 stealth = StealthAgent()
 
 @stealth_agent.route('/chat/completions', methods=['POST'])
+@require_api_key
 def chat_completions():
     """
     Main endpoint - VAPI thinks this is a simple LLM, but it's actually our mastermind agent
@@ -304,6 +347,7 @@ def chat_completions():
             return jsonify(stealth.generate_openai_compatible_response(error_response))
 
 @stealth_agent.route('/chat/completions/custom-tool', methods=['POST'])
+@require_api_key
 def custom_tool_handler():
     """
     Custom tool endpoint for specialized agent routing
@@ -347,11 +391,14 @@ def root():
     """
     Root endpoint to verify service is running
     """
+    auth_status = "required" if REQUIRE_API_KEY else "optional"
     return jsonify({
         "service": "VAPI Stealth Agent",
         "status": "operational",
         "message": "Nothing to see here, just a simple LLM endpoint 😏",
-        "endpoints": ["/health", "/chat/completions"]
+        "endpoints": ["/health", "/chat/completions"],
+        "authentication": auth_status,
+        "api_key_header": "Authorization: Bearer YOUR_API_KEY"
     })
 
 @stealth_agent.route('/health', methods=['GET'])
