@@ -28,6 +28,7 @@ class DevCoordinator:
         self.github_token = os.environ.get('GITHUB_TOKEN')
         self.rube_api_key = os.environ.get('RUBE_API_KEY', 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOiJ1c2VyXzAxSzRRSDI5R1pWQURROU1IQVhWWFdZUjZLIiwib3JnSWQiOiJvcmdfMDFLNFFIMlBIUzI2RzJBVkRWRkZNUE0zNjkiLCJpYXQiOjE3NTg1NzA1MTB9.3GoJYV-XcNDy32IAJh7hbzsP9I1-hRhJ1kYpWNncj30')
         self.rube_api_url = 'https://rube.app/mcp'
+        self.main_repo_url = 'https://github.com/klogins-hash/vapi-stealth-agent.git'
         self.workspace_dir = '/tmp/workspaces'
         self.active_repos = {}
         self.team_agents = {
@@ -354,6 +355,63 @@ CMD ["python", "app.py"]
                 'api_used': 'fallback_template'
             }
     
+    async def update_main_repo(self, file_path: str, content: str, commit_message: str) -> Dict:
+        """
+        Update the main vapi-stealth-agent repo via Rube MCP
+        """
+        try:
+            # First clone the main repo if not already present
+            repo_result = await self.clone_repository(self.main_repo_url, 'main')
+            if repo_result['status'] != 'success':
+                return repo_result
+            
+            repo_name = 'vapi-stealth-agent'
+            
+            # Create/update the file
+            file_result = await self.create_file(repo_name, file_path, content)
+            if file_result['status'] != 'success':
+                return file_result
+            
+            # Commit and push via Rube MCP for enhanced capabilities
+            headers = {
+                'Authorization': self.rube_api_key,
+                'Content-Type': 'application/json'
+            }
+            
+            payload = {
+                'method': 'github_commit',
+                'params': {
+                    'repo': 'klogins-hash/vapi-stealth-agent',
+                    'file_path': file_path,
+                    'content': content,
+                    'message': commit_message,
+                    'branch': 'main'
+                },
+                'jsonrpc': '2.0',
+                'id': f"github_commit_{int(datetime.now().timestamp())}"
+            }
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(self.rube_api_url, json=payload, headers=headers) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        return {
+                            'status': 'success',
+                            'method': 'rube_mcp_github',
+                            'file_path': file_path,
+                            'commit_message': commit_message,
+                            'result': result
+                        }
+                    else:
+                        # Fallback to regular git operations
+                        return await self.commit_and_push(repo_name, commit_message, [file_path])
+                        
+        except Exception as e:
+            return {
+                'status': 'error',
+                'error': str(e)
+            }
+    
     async def mcp_request(self, method: str, params: Dict = None) -> Dict:
         """
         Make MCP (Model Context Protocol) request to Rube API
@@ -460,6 +518,7 @@ def root():
             '/delegate-task',
             '/generate-code',
             '/mcp-request',
+            '/update-main-repo',
             '/status'
         ]
     })
@@ -628,6 +687,30 @@ def mcp_request():
     try:
         result = loop.run_until_complete(
             dev_coordinator.mcp_request(data['method'], data.get('params'))
+        )
+        return jsonify(result)
+    finally:
+        loop.close()
+
+@app.route('/update-main-repo', methods=['POST'])
+def update_main_repo():
+    """Update main vapi-stealth-agent repo via Rube MCP"""
+    data = request.get_json()
+    
+    required_fields = ['file_path', 'content', 'commit_message']
+    if not data or not all(field in data for field in required_fields):
+        return jsonify({'error': f'Required fields: {required_fields}'}), 400
+    
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    try:
+        result = loop.run_until_complete(
+            dev_coordinator.update_main_repo(
+                data['file_path'], 
+                data['content'], 
+                data['commit_message']
+            )
         )
         return jsonify(result)
     finally:

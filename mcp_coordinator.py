@@ -257,6 +257,46 @@ class MCPCoordinator:
                 'error': str(e)
             }
     
+    async def github_operation(self, operation: str, params: Dict) -> Dict:
+        """
+        Perform GitHub operations via Rube MCP
+        """
+        try:
+            headers = {
+                'Authorization': self.rube_api_key,
+                'Content-Type': 'application/json'
+            }
+            
+            payload = {
+                'jsonrpc': '2.0',
+                'id': f"github_{operation}_{int(datetime.now().timestamp())}",
+                'method': f'github_{operation}',
+                'params': params
+            }
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(self.rube_api_url, json=payload, headers=headers) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        return {
+                            'status': 'success',
+                            'operation': operation,
+                            'result': result,
+                            'api_used': 'rube_mcp_github'
+                        }
+                    else:
+                        error_text = await response.text()
+                        return {
+                            'status': 'error',
+                            'error': f"GitHub operation failed {response.status}: {error_text}"
+                        }
+                        
+        except Exception as e:
+            return {
+                'status': 'error',
+                'error': str(e)
+            }
+
     async def coordinate_agents(self, task: str, agents: List[str], context: Dict = None) -> Dict:
         """
         Coordinate multiple agents using MCP
@@ -362,6 +402,7 @@ def root():
             '/call-tool',
             '/manage-context',
             '/coordinate-agents',
+            '/github-operation',
             '/status'
         ]
     })
@@ -463,6 +504,25 @@ def coordinate_agents():
     try:
         result = loop.run_until_complete(
             mcp_coordinator.coordinate_agents(data['task'], data['agents'], data.get('context'))
+        )
+        return jsonify(result)
+    finally:
+        loop.close()
+
+@app.route('/github-operation', methods=['POST'])
+def github_operation():
+    """Perform GitHub operation via Rube MCP"""
+    data = request.get_json()
+    
+    if not data or 'operation' not in data or 'params' not in data:
+        return jsonify({'error': 'operation and params required'}), 400
+    
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    try:
+        result = loop.run_until_complete(
+            mcp_coordinator.github_operation(data['operation'], data['params'])
         )
         return jsonify(result)
     finally:
