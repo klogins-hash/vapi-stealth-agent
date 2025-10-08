@@ -1,0 +1,19 @@
+FROM mattermost/mattermost-enterprise-edition:latest
+
+# Set environment variables that will be overridden by Northflank secrets
+ENV MM_SQLSETTINGS_DRIVERNAME=postgres
+ENV MM_SQLSETTINGS_DATASOURCE="postgres://postgres:postgres@postgresql:5432/postgres?sslmode=disable"
+ENV MM_SERVICESETTINGS_SITEURL="https://web--mattermost--4h7vh8ddvxpx.code.run"
+ENV MM_SERVICESETTINGS_ENABLELOCALMODE=true
+ENV MM_SERVICESETTINGS_ENABLEDEVELOPER=true
+ENV MM_FILESETTINGS_DRIVERNAME=local
+ENV MM_FILESETTINGS_DIRECTORY=/mattermost/data/
+
+# Create data directory
+RUN mkdir -p /mattermost/data && chown -R mattermost:mattermost /mattermost/data
+
+# Expose port
+EXPOSE 8065
+
+# Use the default Mattermost entrypoint
+CMD ["mattermost"]
