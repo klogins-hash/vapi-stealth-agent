@@ -1,0 +1,31 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies including git
+RUN apt-get update && apt-get install -y \
+    git \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install development coordinator specific dependencies
+RUN pip install --no-cache-dir \
+    GitPython \
+    subprocess32
+
+# Copy application code
+COPY dev_coordinator.py .
+
+# Create workspace directory
+RUN mkdir -p /tmp/workspaces
+
+# Expose port
+EXPOSE 8003
+
+# Run the application
+CMD ["python", "dev_coordinator.py"]
