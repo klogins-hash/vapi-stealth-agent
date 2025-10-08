@@ -1,0 +1,36 @@
+{
+  "name": "job-optimizer",
+  "description": "Job Discovery & Optimization Agent - Finds work and improvements for all agents",
+  "billing": {
+    "deploymentPlan": "nf-compute-200-4"
+  },
+  "vcsData": {
+    "projectUrl": "https://github.com/klogins-hash/vapi-stealth-agent",
+    "projectType": "github",
+    "projectBranch": "main",
+    "dockerFilePath": "/Dockerfile.job-optimizer",
+    "dockerWorkDir": "/"
+  },
+  "buildSettings": {
+    "buildEngine": "kaniko",
+    "dockerfile": {
+      "buildEngine": "kaniko",
+      "dockerFilePath": "/Dockerfile.job-optimizer",
+      "dockerWorkDir": "/"
+    }
+  },
+  "deployment": {
+    "instances": 1,
+    "docker": {
+      "configType": "default"
+    }
+  },
+  "ports": [
+    {
+      "name": "api",
+      "internalPort": 8007,
+      "public": true,
+      "protocol": "HTTP"
+    }
+  ]
+}

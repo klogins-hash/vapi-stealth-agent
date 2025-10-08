@@ -312,6 +312,7 @@ Respond in JSON format with your strategic analysis."""
             'mcp_coordinator': 'http://mcp-coordinator:8004',
             'repo_analyzer': 'http://repo-analyzer:8005',
             'workflow_engine': 'http://workflow-engine:8006',
+            'job_optimizer': 'http://job-optimizer:8007',
             'lead_guy': 'http://lead-guy:8000'
         }
         
@@ -332,6 +333,8 @@ Respond in JSON format with your strategic analysis."""
                 agent_type = 'repo_analyzer'
             elif any(word in task_lower for word in ['workflow', 'orchestrate', 'coordinate', 'pipeline']):
                 agent_type = 'workflow_engine'
+            elif any(word in task_lower for word in ['jobs', 'optimize', 'improve', 'find work']):
+                agent_type = 'job_optimizer'
             else:
                 agent_type = 'lead_guy'
         
@@ -484,6 +487,7 @@ Need me to coordinate anything specific?"""
 • MCP Coordinator - Protocol expert with Rube API
 • Repo Analyzer - Repository analysis and translation expert
 • Workflow Engine - Master orchestrator for complex workflows
+• Job Optimizer - Finds work opportunities and optimizations
 • Lead Guy - Team coordination specialist
 
 What task needs delegation?"""
