@@ -1,0 +1,36 @@
+{
+  "name": "vector-search",
+  "description": "Vector Search Agent with Cohere v4 embed model",
+  "billing": {
+    "deploymentPlan": "nf-compute-200-4"
+  },
+  "vcsData": {
+    "projectUrl": "https://github.com/klogins-hash/vapi-stealth-agent",
+    "projectType": "github",
+    "projectBranch": "main",
+    "dockerFilePath": "/Dockerfile.vector-search",
+    "dockerWorkDir": "/"
+  },
+  "buildSettings": {
+    "buildEngine": "kaniko",
+    "dockerfile": {
+      "buildEngine": "kaniko",
+      "dockerFilePath": "/Dockerfile.vector-search",
+      "dockerWorkDir": "/"
+    }
+  },
+  "deployment": {
+    "instances": 1,
+    "docker": {
+      "configType": "default"
+    }
+  },
+  "ports": [
+    {
+      "name": "api",
+      "internalPort": 8002,
+      "public": true,
+      "protocol": "HTTP"
+    }
+  ]
+}
