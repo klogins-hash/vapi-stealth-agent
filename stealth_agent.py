@@ -23,6 +23,16 @@ except Exception as e:
     DB_AVAILABLE = False
     db_manager = None
 
+# Try to import 5-person team integration
+try:
+    from team_integration import business_team_integrator
+    TEAM_INTEGRATION_AVAILABLE = True
+    print("✅ 5-Person Team integration available")
+except Exception as e:
+    print(f"⚠️ Team integration not available: {e}")
+    TEAM_INTEGRATION_AVAILABLE = False
+    business_team_integrator = None
+
 # Initialize Groq client with error handling and retry logic
 groq_client = None
 
@@ -400,7 +410,18 @@ Need me to coordinate anything specific?"""
 
         # Team coordination requests
         elif any(word in message_lower for word in ['team', 'coordinate', 'delegate', 'assign']):
-            return """Ready to coordinate with the team through lead-guy agent.
+            if TEAM_INTEGRATION_AVAILABLE and business_team_integrator:
+                team_status = business_team_integrator.get_team_status()
+                active_agents = len([a for a in team_status.get('agents', {}).values() if a.get('status') == 'working'])
+                total_agents = team_status.get('total_agents', 0)
+                
+                return f"""5-person team ready for coordination. {active_agents} of {total_agents} agents currently working.
+
+Available: Lead guy, Technical lead, Business analyst, QA specialist, Deployment engineer.
+
+What task needs delegation?"""
+            else:
+                return """Ready to coordinate with the team through lead-guy agent.
 
 I can delegate tasks, follow up on commitments, or schedule meetings.
 
@@ -699,12 +720,13 @@ def root():
             "/health", 
             "/chat/completions", 
             "/business-status",
+            "/team-coordination",
             "/test-chat",
             "/network-test"
         ],
         "capabilities": [
             "EOS Framework Implementation",
-            "Team Coordination via Lead Guy Agent",
+            "5-Person Team Coordination" if TEAM_INTEGRATION_AVAILABLE else "Team Coordination via Lead Guy Agent",
             "Private Network Communication",
             "Agent Orchestration",
             "Business Intelligence"
@@ -970,6 +992,73 @@ def business_status():
     except Exception as e:
         return jsonify({
             "error": "Business integrator error",
+            "details": str(e),
+            "timestamp": datetime.now().isoformat()
+        }), 500
+
+@stealth_agent.route('/team-coordination', methods=['GET', 'POST'])
+@require_api_key
+def team_coordination():
+    """
+    5-Person Team coordination endpoint
+    """
+    try:
+        if request.method == 'GET':
+            # Return team status
+            if TEAM_INTEGRATION_AVAILABLE and business_team_integrator:
+                team_status = business_team_integrator.get_team_status()
+                return jsonify({
+                    "team_integration": "available",
+                    "framework_status": team_status.get("framework_status", "unknown"),
+                    "total_agents": team_status.get("total_agents", 0),
+                    "agents": team_status.get("agents", {}),
+                    "timestamp": datetime.now().isoformat()
+                })
+            else:
+                return jsonify({
+                    "team_integration": "unavailable",
+                    "message": "5-person team framework not loaded",
+                    "timestamp": datetime.now().isoformat()
+                })
+        
+        elif request.method == 'POST':
+            # Handle team coordination requests
+            request_data = request.get_json()
+            task = request_data.get('task', '')
+            role = request_data.get('role', 'lead_guy')
+            
+            if not task:
+                return jsonify({"error": "No task provided"}), 400
+            
+            if TEAM_INTEGRATION_AVAILABLE and business_team_integrator:
+                # Use async context for team coordination
+                import asyncio
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                
+                try:
+                    result = loop.run_until_complete(
+                        business_team_integrator.delegate_task(task, role)
+                    )
+                    
+                    return jsonify({
+                        "delegation_result": result,
+                        "task": task,
+                        "assigned_to": role,
+                        "timestamp": datetime.now().isoformat()
+                    })
+                finally:
+                    loop.close()
+            else:
+                return jsonify({
+                    "error": "Team integration not available",
+                    "task_noted": task,
+                    "timestamp": datetime.now().isoformat()
+                }), 503
+                
+    except Exception as e:
+        return jsonify({
+            "error": "Team coordination error",
             "details": str(e),
             "timestamp": datetime.now().isoformat()
         }), 500
