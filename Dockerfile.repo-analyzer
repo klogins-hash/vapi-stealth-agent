@@ -1,0 +1,26 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies including git
+RUN apt-get update && apt-get install -y \
+    git \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY repo_analyzer.py .
+
+# Create workspace directory
+RUN mkdir -p /tmp/repo_analysis
+
+# Expose port
+EXPOSE 8005
+
+# Run the application
+CMD ["python", "repo_analyzer.py"]

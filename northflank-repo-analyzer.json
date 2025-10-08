@@ -1,0 +1,36 @@
+{
+  "name": "repo-analyzer",
+  "description": "Repository Analysis Agent - Expert at translating repos for Microsoft Agent Framework",
+  "billing": {
+    "deploymentPlan": "nf-compute-200-4"
+  },
+  "vcsData": {
+    "projectUrl": "https://github.com/klogins-hash/vapi-stealth-agent",
+    "projectType": "github",
+    "projectBranch": "main",
+    "dockerFilePath": "/Dockerfile.repo-analyzer",
+    "dockerWorkDir": "/"
+  },
+  "buildSettings": {
+    "buildEngine": "kaniko",
+    "dockerfile": {
+      "buildEngine": "kaniko",
+      "dockerFilePath": "/Dockerfile.repo-analyzer",
+      "dockerWorkDir": "/"
+    }
+  },
+  "deployment": {
+    "instances": 1,
+    "docker": {
+      "configType": "default"
+    }
+  },
+  "ports": [
+    {
+      "name": "api",
+      "internalPort": 8005,
+      "public": true,
+      "protocol": "HTTP"
+    }
+  ]
+}
