@@ -1,38 +1,36 @@
 {
   "name": "database-orchestrator",
   "description": "Master Database Orchestrator Agent",
-  "projectId": "show-me-da-monies",
-  "spec": {
-    "kind": "CombinedService",
-    "vcsData": {
-      "projectUrl": "https://github.com/klogins-hash/vapi-stealth-agent",
-      "projectType": "github",
-      "projectBranch": "main"
-    },
-    "buildSettings": {
-      "dockerfile": {
-        "buildEngine": "kaniko",
-        "dockerFilePath": "/Dockerfile.db-orchestrator",
-        "dockerWorkDir": "/"
-      }
-    },
-    "runtimeEnvironment": {
-      "variables": {
-        "PORT": "8000"
-      }
-    },
-    "ports": [
-      {
-        "name": "api",
-        "internalPort": 8000,
-        "public": true,
-        "protocol": "HTTP"
-      }
-    ],
-    "resources": {
-      "replicas": 1,
-      "cpu": "0.2",
-      "memory": "512Mi"
+  "billing": {
+    "deploymentPlan": "nf-compute-200-4"
+  },
+  "vcsData": {
+    "projectUrl": "https://github.com/klogins-hash/vapi-stealth-agent",
+    "projectType": "github",
+    "projectBranch": "main",
+    "dockerFilePath": "/Dockerfile.db-orchestrator",
+    "dockerWorkDir": "/"
+  },
+  "buildSettings": {
+    "buildEngine": "kaniko",
+    "dockerfile": {
+      "buildEngine": "kaniko",
+      "dockerFilePath": "/Dockerfile.db-orchestrator",
+      "dockerWorkDir": "/"
     }
-  }
+  },
+  "deployment": {
+    "instances": 1,
+    "docker": {
+      "configType": "default"
+    }
+  },
+  "ports": [
+    {
+      "name": "api",
+      "internalPort": 8000,
+      "public": true,
+      "protocol": "HTTP"
+    }
+  ]
 }
