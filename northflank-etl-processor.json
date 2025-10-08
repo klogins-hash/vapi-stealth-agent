@@ -25,12 +25,6 @@
       "configType": "default"
     }
   },
-  "runtimeEnvironment": {
-    "variables": {
-      "PORT": "8001",
-      "DB_ORCHESTRATOR_URL": "http://database-orchestrator:8000"
-    }
-  },
   "ports": [
     {
       "name": "api",
