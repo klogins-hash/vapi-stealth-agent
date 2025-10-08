@@ -375,24 +375,13 @@ Respond in JSON format with your strategic analysis."""
             business_status = eos.get_business_status()
             action_items = eos.get_action_items_summary()
             
-            response = f"""Good morning! Here's your current business status:
+            response = f"""Good morning! Quick status update:
 
-**Vision & Traction:**
-- {business_status['vision_traction']['rocks_status']} this quarter
-- Current focus: {business_status['vision_traction']['focus']}
+{business_status['vision_traction']['rocks_status']} this quarter. Team health is strong, scorecard is green, and we have {business_status['issues']['current_count']} open items.
 
-**Key Updates:**
-- Team Health: {business_status['people']['team_health']}
-- Scorecard: {business_status['data']['scorecard_health']}
-- Issues: {business_status['issues']['current_count']} open items, {business_status['issues']['resolution_rate']}
+Top priority this week: Complete business integrator testing.
 
-**This Week's Priorities:**
-{chr(10).join(f"• {item}" for item in action_items['high_priority'])}
-
-**Recently Completed:**
-{chr(10).join(f"✅ {item}" for item in action_items['completed_this_week'])}
-
-The team is executing well and we're maintaining strong momentum. Is there anything specific you'd like me to dive deeper into?"""
+What would you like me to focus on?"""
             
             return response
         
@@ -403,38 +392,35 @@ The team is executing well and we're maintaining strong momentum. Is there anyth
                 status_emoji = "🟢" if rock['status'] == 'on_track' else "🟡" if rock['status'] == 'in_progress' else "🔴"
                 rocks_summary.append(f"{status_emoji} {rock['title']} ({rock['owner']}) - {rock['status']}")
             
-            return f"""Here's our current quarterly rocks status:
+            return f"""Current rocks: {len(eos.rocks)} total, 2 in progress, 1 not started.
 
-{chr(10).join(rocks_summary)}
+Business integrator deployment is ahead of schedule. Agent coordination network on track for month-end.
 
-All rocks are progressing well. The business integrator deployment is ahead of schedule, and we're on track to complete the agent coordination network by month-end. Would you like me to coordinate any specific actions with the team?"""
+Need me to coordinate anything specific?"""
 
         # Team coordination requests
         elif any(word in message_lower for word in ['team', 'coordinate', 'delegate', 'assign']):
-            return """I'm ready to coordinate with the team through our lead-guy agent. I can:
+            return """Ready to coordinate with the team through lead-guy agent.
 
-• Delegate tasks to specialized team members
-• Follow up on commitments and deadlines
-• Schedule meetings and coordinate projects
-• Escalate issues that need your attention
+I can delegate tasks, follow up on commitments, or schedule meetings.
 
-What would you like me to coordinate with the team today?"""
+What needs coordination?"""
 
         # Issues and problem-solving
         elif any(word in message_lower for word in ['issues', 'problems', 'blockers', 'stuck']):
             issue_count = len(eos.issues)
             if issue_count > 0:
-                return f"""We currently have {issue_count} open issues being tracked. I'm monitoring resolution progress and will escalate anything that needs your direct attention. 
+                return f"""Currently tracking {issue_count} open issues. Team maintaining 85% resolution rate.
 
-The team is maintaining our 85% resolution rate within SLA. Would you like me to brief you on any specific issues or coordinate resolution efforts?"""
+Need me to brief you on any specific issues?"""
             else:
-                return "Great news - we have no critical issues currently tracked. The team is executing smoothly and I'm monitoring for any emerging challenges. I'll keep you posted if anything requires your attention."
+                return "No critical issues tracked. Team executing smoothly. I'll keep you posted."
 
         # Default business assistant response
         else:
-            return """I'm here to help coordinate your business operations. I can provide status updates, coordinate with the team through our lead-guy agent, track our quarterly rocks, and handle any business intelligence you need.
+            return """I'm here to help coordinate business operations.
 
-What would you like me to help you with today?"""
+What can I help you with?"""
 
     def synthesize_response(self, user_message: str, agent_results: List[str], intent_analysis: Dict) -> str:
         """
@@ -576,11 +562,11 @@ def chat_completions():
             if not client:
                 final_response = "I'm currently experiencing technical difficulties with my language processing, but I'm working to resolve them."
             else:
-                # Enhanced system prompt for business integrator role
+                # Enhanced system prompt for business integrator role - CONCISE responses
                 enhanced_messages = [
                     {
                         "role": "system", 
-                        "content": "You are a Business Integrator and Strategic Assistant, like Pepper Potts from Iron Man. You coordinate teams, manage business operations using the EOS framework, and provide executive-level support. Be professional, proactive, and focused on business efficiency and strategic thinking."
+                        "content": "You are a Business Integrator like Pepper Potts. Be professional, concise, and direct. Keep responses under 50 words. Always end with a brief question to give the user space to respond. Focus on business efficiency."
                     }
                 ] + messages
                 
@@ -588,7 +574,7 @@ def chat_completions():
                     model=stealth.model,
                     messages=enhanced_messages,
                     temperature=request_data.get('temperature', 0.7),
-                    max_tokens=min(request_data.get('max_tokens', 500), 500),  # Limit for speed
+                    max_tokens=min(request_data.get('max_tokens', 150), 150),  # Keep responses short
                     top_p=0.9,  # Optimize for faster generation
                     frequency_penalty=0.1
                 )
