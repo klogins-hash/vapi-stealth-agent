@@ -26,6 +26,8 @@ class DevCoordinator:
     
     def __init__(self):
         self.github_token = os.environ.get('GITHUB_TOKEN')
+        self.rube_api_key = os.environ.get('RUBE_API_KEY', 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOiJ1c2VyXzAxSzRRSDI5R1pWQURROU1IQVhWWFdZUjZLIiwib3JnSWQiOiJvcmdfMDFLNFFIMlBIUzI2RzJBVkRWRkZNUE0zNjkiLCJpYXQiOjE3NTg1NzA1MTB9.3GoJYV-XcNDy32IAJh7hbzsP9I1-hRhJ1kYpWNncj30')
+        self.rube_api_url = 'https://rube.app/mcp'
         self.workspace_dir = '/tmp/workspaces'
         self.active_repos = {}
         self.team_agents = {
@@ -268,29 +270,65 @@ class DevCoordinator:
     
     async def generate_code(self, prompt: str, language: str = 'python', context: Dict = None) -> Dict:
         """
-        Generate code based on prompt (would integrate with LLM)
+        Generate code using Rube API with MCP capabilities
         """
-        # This would integrate with your preferred LLM for code generation
-        # For now, returning a template response
-        
-        templates = {
-            'python': '''
+        try:
+            headers = {
+                'Authorization': self.rube_api_key,
+                'Content-Type': 'application/json'
+            }
+            
+            payload = {
+                'prompt': f"Generate {language} code for: {prompt}",
+                'language': language,
+                'context': context or {},
+                'max_tokens': 2000,
+                'temperature': 0.3  # Lower temperature for more consistent code
+            }
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(self.rube_api_url, json=payload, headers=headers) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        
+                        # Extract generated code from Rube response
+                        generated_code = result.get('code', result.get('content', ''))
+                        
+                        return {
+                            'status': 'success',
+                            'prompt': prompt,
+                            'language': language,
+                            'generated_code': generated_code,
+                            'lines': len(generated_code.split('\n')),
+                            'rube_response': result,
+                            'api_used': 'rube_mcp'
+                        }
+                    else:
+                        error_text = await response.text()
+                        raise Exception(f"Rube API error {response.status}: {error_text}")
+                        
+        except Exception as e:
+            # Fallback to template-based generation if Rube API fails
+            print(f"Rube API failed, using fallback: {e}")
+            
+            templates = {
+                'python': f'''
 def generated_function():
     """
     Generated based on: {prompt}
     """
-    # TODO: Implement functionality
+    # TODO: Implement functionality based on: {prompt}
     pass
 ''',
-            'javascript': '''
-function generatedFunction() {
+                'javascript': f'''
+function generatedFunction() {{
     /**
      * Generated based on: {prompt}
      */
-    // TODO: Implement functionality
-}
+    // TODO: Implement functionality based on: {prompt}
+}}
 ''',
-            'dockerfile': '''
+                'dockerfile': f'''
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -302,18 +340,59 @@ COPY . .
 
 CMD ["python", "app.py"]
 '''
-        }
-        
-        template = templates.get(language, templates['python'])
-        generated_code = template.format(prompt=prompt)
-        
-        return {
-            'status': 'success',
-            'prompt': prompt,
-            'language': language,
-            'generated_code': generated_code,
-            'lines': len(generated_code.split('\n'))
-        }
+            }
+            
+            template = templates.get(language, templates['python'])
+            
+            return {
+                'status': 'fallback',
+                'prompt': prompt,
+                'language': language,
+                'generated_code': template,
+                'lines': len(template.split('\n')),
+                'error': str(e),
+                'api_used': 'fallback_template'
+            }
+    
+    async def mcp_request(self, method: str, params: Dict = None) -> Dict:
+        """
+        Make MCP (Model Context Protocol) request to Rube API
+        """
+        try:
+            headers = {
+                'Authorization': self.rube_api_key,
+                'Content-Type': 'application/json'
+            }
+            
+            payload = {
+                'method': method,
+                'params': params or {},
+                'jsonrpc': '2.0',
+                'id': f"mcp_{int(datetime.now().timestamp())}"
+            }
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(self.rube_api_url, json=payload, headers=headers) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        return {
+                            'status': 'success',
+                            'method': method,
+                            'result': result,
+                            'api_used': 'rube_mcp'
+                        }
+                    else:
+                        error_text = await response.text()
+                        return {
+                            'status': 'error',
+                            'error': f"MCP request failed {response.status}: {error_text}"
+                        }
+                        
+        except Exception as e:
+            return {
+                'status': 'error',
+                'error': str(e)
+            }
     
     def _list_files(self, directory: str, max_depth: int = 3) -> List[str]:
         """
@@ -380,6 +459,7 @@ def root():
             '/run-tests',
             '/delegate-task',
             '/generate-code',
+            '/mcp-request',
             '/status'
         ]
     })
@@ -529,6 +609,25 @@ def generate_code():
                 data.get('language', 'python'),
                 data.get('context')
             )
+        )
+        return jsonify(result)
+    finally:
+        loop.close()
+
+@app.route('/mcp-request', methods=['POST'])
+def mcp_request():
+    """Make MCP request to Rube API"""
+    data = request.get_json()
+    
+    if not data or 'method' not in data:
+        return jsonify({'error': 'method required'}), 400
+    
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    try:
+        result = loop.run_until_complete(
+            dev_coordinator.mcp_request(data['method'], data.get('params'))
         )
         return jsonify(result)
     finally:
