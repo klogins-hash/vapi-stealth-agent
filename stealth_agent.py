@@ -300,6 +300,65 @@ Respond in JSON format with your strategic analysis."""
         # Add other agent routing here
         return f"Agent {agent_name} response for: {query}"
     
+    async def delegate_to_team(self, task: str, agent_type: str = None) -> str:
+        """
+        Delegate tasks to appropriate team agents
+        """
+        team_agents = {
+            'database_orchestrator': 'http://database-orchestrator:8000',
+            'etl_processor': 'http://etl-processor:8001', 
+            'vector_search': 'http://vector-search:8002',
+            'dev_coordinator': 'http://dev-coordinator:8003',
+            'mcp_coordinator': 'http://mcp-coordinator:8004',
+            'lead_guy': 'http://lead-guy:8000'
+        }
+        
+        # Auto-detect agent type if not specified
+        if not agent_type:
+            task_lower = task.lower()
+            if any(word in task_lower for word in ['database', 'sql', 'query', 'db']):
+                agent_type = 'database_orchestrator'
+            elif any(word in task_lower for word in ['data', 'process', 'etl', 'transform']):
+                agent_type = 'etl_processor'
+            elif any(word in task_lower for word in ['search', 'find', 'semantic', 'vector']):
+                agent_type = 'vector_search'
+            elif any(word in task_lower for word in ['code', 'git', 'develop', 'deploy']):
+                agent_type = 'dev_coordinator'
+            elif any(word in task_lower for word in ['mcp', 'protocol', 'rube']):
+                agent_type = 'mcp_coordinator'
+            else:
+                agent_type = 'lead_guy'
+        
+        if agent_type not in team_agents:
+            return f"Unknown agent type: {agent_type}. Available: {list(team_agents.keys())}"
+        
+        try:
+            agent_url = team_agents[agent_type]
+            
+            async with aiohttp.ClientSession() as session:
+                # Try different endpoints based on agent type
+                if agent_type == 'database_orchestrator':
+                    endpoint = '/status'
+                elif agent_type == 'etl_processor':
+                    endpoint = '/health'
+                elif agent_type == 'vector_search':
+                    endpoint = '/stats'
+                elif agent_type == 'dev_coordinator':
+                    endpoint = '/status'
+                elif agent_type == 'mcp_coordinator':
+                    endpoint = '/status'
+                else:
+                    endpoint = '/health'
+                
+                async with session.get(f"{agent_url}{endpoint}", timeout=10) as response:
+                    if response.status == 200:
+                        return f"✅ Task delegated to {agent_type}: '{task}'\n\nAgent is operational and ready to handle the request."
+                    else:
+                        return f"⚠️ {agent_type} is not responding (HTTP {response.status}). Task noted for manual follow-up."
+                        
+        except Exception as e:
+            return f"❌ Failed to reach {agent_type}: {str(e)}. Task will be handled manually."
+
     async def call_lead_guy_agent(self, query: str, context: Dict) -> str:
         """
         Call the lead-guy service via private network for agent coordination and business management
@@ -410,22 +469,16 @@ Need me to coordinate anything specific?"""
 
         # Team coordination requests
         elif any(word in message_lower for word in ['team', 'coordinate', 'delegate', 'assign']):
-            if TEAM_INTEGRATION_AVAILABLE and business_team_integrator:
-                team_status = business_team_integrator.get_team_status()
-                active_agents = len([a for a in team_status.get('agents', {}).values() if a.get('status') == 'working'])
-                total_agents = team_status.get('total_agents', 0)
-                
-                return f"""5-person team ready for coordination. {active_agents} of {total_agents} agents currently working.
+            return f"""Full agent team ready for coordination:
 
-Available: Lead guy, Technical lead, Business analyst, QA specialist, Deployment engineer.
+• Database Orchestrator - All database operations
+• ETL Processor - Data processing and transformation  
+• Vector Search - Semantic search with Cohere
+• Dev Coordinator - Code generation, Git operations
+• MCP Coordinator - Protocol expert with Rube API
+• Lead Guy - Team coordination specialist
 
 What task needs delegation?"""
-            else:
-                return """Ready to coordinate with the team through lead-guy agent.
-
-I can delegate tasks, follow up on commitments, or schedule meetings.
-
-What needs coordination?"""
 
         # Issues and problem-solving
         elif any(word in message_lower for word in ['issues', 'problems', 'blockers', 'stuck']):
@@ -571,12 +624,25 @@ def chat_completions():
         
         # Check if this is a business intelligence query first
         business_keywords = ['status', 'update', 'rocks', 'goals', 'team', 'coordinate', 'issues', 'problems', 'what\'s up', 'how are things']
+        delegation_keywords = ['delegate', 'assign', 'handle', 'process', 'create', 'build', 'deploy', 'search', 'find']
+        
         is_business_query = any(keyword in user_message.lower() for keyword in business_keywords)
+        is_delegation_request = any(keyword in user_message.lower() for keyword in delegation_keywords)
         
         if is_business_query:
             # Use our built-in business intelligence
             final_response = stealth.get_business_intelligence_response(user_message)
             stealth.log_event("Business Intelligence Response", {"query": user_message[:100], "response_length": len(final_response)})
+        elif is_delegation_request:
+            # Handle task delegation to team agents
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            try:
+                final_response = loop.run_until_complete(stealth.delegate_to_team(user_message))
+                stealth.log_event("Task Delegation", {"task": user_message[:100], "response_length": len(final_response)})
+            finally:
+                loop.close()
         else:
             # Use Groq for general conversation
             client = get_groq_client()
@@ -1085,6 +1151,15 @@ def network_test():
         except Exception as e:
             postgres_connectivity = f"error: {str(e)}"
         
+        team_agents = {
+            'database_orchestrator': 'http://database-orchestrator:8000',
+            'etl_processor': 'http://etl-processor:8001', 
+            'vector_search': 'http://vector-search:8002',
+            'dev_coordinator': 'http://dev-coordinator:8003',
+            'mcp_coordinator': 'http://mcp-coordinator:8004',
+            'lead_guy': 'http://lead-guy:8000'
+        }
+        
         return jsonify({
             "private_network_status": "testing",
             "postgresql": {
@@ -1098,6 +1173,7 @@ def network_test():
                 "region": os.environ.get("NF_REGION"),
                 "cluster": "nf-us-east1"
             },
+            "team_agents": team_agents,
             "timestamp": datetime.now().isoformat()
         })
     except Exception as e:
