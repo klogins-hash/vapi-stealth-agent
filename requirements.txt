@@ -28,3 +28,8 @@ psycopg2-binary>=2.9.9
 pymongo>=4.0.0
 redis>=5.0.0
 asyncpg>=0.29.0
+
+# ETL Processor Dependencies
+pandas>=2.0.0
+lxml>=4.9.0
+openpyxl>=3.1.0

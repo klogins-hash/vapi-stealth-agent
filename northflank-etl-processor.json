@@ -1,0 +1,42 @@
+{
+  "name": "etl-processor",
+  "description": "ETL Processing Agent - Reports to Database Orchestrator",
+  "billing": {
+    "deploymentPlan": "nf-compute-200-4"
+  },
+  "vcsData": {
+    "projectUrl": "https://github.com/klogins-hash/vapi-stealth-agent",
+    "projectType": "github",
+    "projectBranch": "main",
+    "dockerFilePath": "/Dockerfile.etl-processor",
+    "dockerWorkDir": "/"
+  },
+  "buildSettings": {
+    "buildEngine": "kaniko",
+    "dockerfile": {
+      "buildEngine": "kaniko",
+      "dockerFilePath": "/Dockerfile.etl-processor",
+      "dockerWorkDir": "/"
+    }
+  },
+  "deployment": {
+    "instances": 1,
+    "docker": {
+      "configType": "default"
+    }
+  },
+  "runtimeEnvironment": {
+    "variables": {
+      "PORT": "8001",
+      "DB_ORCHESTRATOR_URL": "http://database-orchestrator:8000"
+    }
+  },
+  "ports": [
+    {
+      "name": "api",
+      "internalPort": 8001,
+      "public": true,
+      "protocol": "HTTP"
+    }
+  ]
+}
