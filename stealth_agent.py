@@ -58,6 +58,13 @@ get_groq_client()
 VAPI_API_KEY = os.environ.get("VAPI_API_KEY", "sk-stealth-agent-default-key-2024")
 REQUIRE_API_KEY = os.environ.get("REQUIRE_API_KEY", "false").lower() == "true"
 
+# Private Network Configuration
+LEAD_GUY_URL = os.environ.get("LEAD_GUY_URL", "http://lead-guy:8000")
+PRIVATE_NETWORK_ENABLED = os.environ.get("PRIVATE_NETWORK_ENABLED", "false").lower() == "true"
+
+print(f"🔗 Private Network: {'Enabled' if PRIVATE_NETWORK_ENABLED else 'Disabled'}")
+print(f"🎯 Lead Guy Service: {LEAD_GUY_URL}")
+
 def require_api_key(f):
     """
     Decorator to require API key authentication for VAPI/OpenAI integration
@@ -168,14 +175,61 @@ Respond in JSON format with your strategic analysis."""
     
     async def call_specialized_agent(self, agent_name: str, query: str, context: Dict) -> str:
         """
-        Route requests to specialized agents (like your GitHub analysis agent)
+        Route requests to specialized agents including the lead-guy for business coordination
         """
         if agent_name == "github_analysis":
             return await self.call_github_agent(query, context)
+        elif agent_name == "lead_guy" or agent_name == "business_coordinator":
+            return await self.call_lead_guy_agent(query, context)
         
         # Add other agent routing here
         return f"Agent {agent_name} response for: {query}"
     
+    async def call_lead_guy_agent(self, query: str, context: Dict) -> str:
+        """
+        Call the lead-guy service via private network for agent coordination and business management
+        """
+        if not PRIVATE_NETWORK_ENABLED:
+            return "Private network communication is disabled"
+            
+        try:
+            async with aiohttp.ClientSession() as session:
+                payload = {
+                    "messages": [{"role": "user", "content": query}],
+                    "temperature": 0.7,
+                    "max_tokens": 1000,
+                    "context": context
+                }
+                
+                headers = {
+                    "Content-Type": "application/json",
+                    "X-Service": "vapi-stealth-agent",
+                    "X-Request-Type": "business-integration"
+                }
+                
+                self.log_event("Lead Guy Agent Call", {"query": query[:100], "url": LEAD_GUY_URL})
+                
+                async with session.post(
+                    f"{LEAD_GUY_URL}/api/v1/chat/completions",
+                    json=payload,
+                    headers=headers,
+                    timeout=30
+                ) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        if 'choices' in result and len(result['choices']) > 0:
+                            return result['choices'][0]['message']['content']
+                        else:
+                            return result.get('message', 'Lead guy agent responded successfully')
+                    else:
+                        error_text = await response.text()
+                        self.log_event("Lead Guy Agent Error", {"status": response.status, "error": error_text})
+                        return f"Lead guy agent returned status {response.status}: {error_text}"
+                    
+        except Exception as e:
+            self.log_event("Lead Guy Agent Call Failed", {"error": str(e)})
+            return f"I encountered an issue connecting to the lead guy agent: {str(e)}"
+
     async def call_github_agent(self, query: str, context: Dict) -> str:
         """
         Call your existing GitHub analysis agent
@@ -458,10 +512,28 @@ def root():
     """
     auth_status = "required" if REQUIRE_API_KEY else "optional"
     return jsonify({
-        "service": "VAPI Stealth Agent",
+        "service": "Business Integrator & Strategic Assistant",
+        "role": "Pepper Potts-style Personal Assistant with EOS Framework",
         "status": "operational",
-        "message": "Nothing to see here, just a simple LLM endpoint 😏",
-        "endpoints": ["/health", "/chat/completions", "/test-chat"],
+        "message": "Your business integrator is ready to coordinate teams and provide strategic insights 🎯",
+        "endpoints": [
+            "/health", 
+            "/chat/completions", 
+            "/business-status",
+            "/test-chat",
+            "/network-test"
+        ],
+        "capabilities": [
+            "EOS Framework Implementation",
+            "Team Coordination via Lead Guy Agent",
+            "Private Network Communication",
+            "Agent Orchestration",
+            "Business Intelligence"
+        ],
+        "private_network": PRIVATE_NETWORK_ENABLED,
+        "connected_services": {
+            "lead_guy": LEAD_GUY_URL if PRIVATE_NETWORK_ENABLED else "disabled"
+        },
         "authentication": auth_status,
         "api_key_header": "Authorization: Bearer YOUR_API_KEY"
     })
@@ -648,6 +720,80 @@ def vapi_test():
         "data": request.get_json() if request.method == 'POST' else None,
         "timestamp": datetime.now().isoformat()
     })
+
+@stealth_agent.route('/business-status', methods=['GET', 'POST'])
+@require_api_key
+def business_status():
+    """
+    Business Integrator endpoint - Pepper Potts style status updates and EOS management
+    """
+    try:
+        if request.method == 'GET':
+            # Return current business status dashboard
+            return jsonify({
+                "role": "Business Integrator & Strategic Assistant",
+                "status": "operational",
+                "private_network": PRIVATE_NETWORK_ENABLED,
+                "lead_guy_connection": LEAD_GUY_URL,
+                "capabilities": [
+                    "EOS Framework Implementation",
+                    "Team Coordination",
+                    "Status Updates & Reporting",
+                    "Action Item Tracking",
+                    "Agent Orchestration",
+                    "Business Intelligence"
+                ],
+                "available_services": {
+                    "lead_guy": LEAD_GUY_URL if PRIVATE_NETWORK_ENABLED else "disabled",
+                    "database": "PostgreSQL available" if DB_AVAILABLE else "unavailable",
+                    "groq_llm": "available" if get_groq_client() else "unavailable"
+                },
+                "timestamp": datetime.now().isoformat()
+            })
+        
+        elif request.method == 'POST':
+            # Handle business queries and delegate to lead-guy agent
+            request_data = request.get_json()
+            query = request_data.get('query', request_data.get('message', ''))
+            
+            if not query:
+                return jsonify({"error": "No query provided"}), 400
+            
+            # Create business context
+            context = {
+                "role": "business_integrator",
+                "framework": "EOS",
+                "request_type": "status_update",
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            # Route to lead-guy agent for business coordination
+            stealth = StealthAgent()
+            
+            # Use async context for the call
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            try:
+                response = loop.run_until_complete(
+                    stealth.call_lead_guy_agent(query, context)
+                )
+                
+                return jsonify({
+                    "business_response": response,
+                    "context": context,
+                    "timestamp": datetime.now().isoformat()
+                })
+            finally:
+                loop.close()
+                
+    except Exception as e:
+        return jsonify({
+            "error": "Business integrator error",
+            "details": str(e),
+            "timestamp": datetime.now().isoformat()
+        }), 500
 
 @stealth_agent.route('/network-test', methods=['GET'])
 def network_test():
