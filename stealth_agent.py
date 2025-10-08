@@ -310,6 +310,7 @@ Respond in JSON format with your strategic analysis."""
             'vector_search': 'http://vector-search:8002',
             'dev_coordinator': 'http://dev-coordinator:8003',
             'mcp_coordinator': 'http://mcp-coordinator:8004',
+            'repo_analyzer': 'http://repo-analyzer:8005',
             'lead_guy': 'http://lead-guy:8000'
         }
         
@@ -326,6 +327,8 @@ Respond in JSON format with your strategic analysis."""
                 agent_type = 'dev_coordinator'
             elif any(word in task_lower for word in ['mcp', 'protocol', 'rube']):
                 agent_type = 'mcp_coordinator'
+            elif any(word in task_lower for word in ['repo', 'repository', 'analyze', 'translate']):
+                agent_type = 'repo_analyzer'
             else:
                 agent_type = 'lead_guy'
         
@@ -476,6 +479,7 @@ Need me to coordinate anything specific?"""
 • Vector Search - Semantic search with Cohere
 • Dev Coordinator - Code generation, Git operations
 • MCP Coordinator - Protocol expert with Rube API
+• Repo Analyzer - Repository analysis and translation expert
 • Lead Guy - Team coordination specialist
 
 What task needs delegation?"""
